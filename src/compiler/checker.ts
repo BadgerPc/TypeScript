@@ -14824,7 +14824,6 @@ namespace ts {
 
         function checkMetaProperty(node: MetaProperty) {
             checkGrammarMetaProperty(node);
-            Debug.assert(node.keywordToken === SyntaxKind.NewKeyword && node.name.text === "target", "Unrecognized meta-property.");
             const container = getNewTargetContainer(node);
             if (!container) {
                 error(node, Diagnostics.Meta_property_0_is_only_allowed_in_the_body_of_a_function_declaration_function_expression_or_constructor, "new.target");
@@ -15949,10 +15948,14 @@ namespace ts {
                     checkAssignmentOperator(rightType);
                     return getRegularTypeOfObjectLiteral(rightType);
                 case SyntaxKind.CommaToken:
-                    if (!compilerOptions.allowUnreachableCode && isSideEffectFree(left)) {
+                    if (!compilerOptions.allowUnreachableCode && isSideEffectFree(left) && !isEvalNode(right)) {
                         error(left, Diagnostics.Left_side_of_comma_operator_is_unused_and_has_no_side_effects);
                     }
                     return rightType;
+            }
+
+            function isEvalNode(node: Expression) {
+                return node.kind === SyntaxKind.Identifier && (node as Identifier).text === "eval";
             }
 
             // Return true if there was no error, false if there was an error.
@@ -20950,7 +20953,9 @@ namespace ts {
                 return getSymbolOfNode(entityName.parent);
             }
 
-            if (isInJavaScriptFile(entityName) && entityName.parent.kind === SyntaxKind.PropertyAccessExpression) {
+            if (isInJavaScriptFile(entityName) &&
+                entityName.parent.kind === SyntaxKind.PropertyAccessExpression &&
+                entityName.parent === (entityName.parent.parent as BinaryExpression).left) {
                 // Check if this is a special property assignment
                 const specialPropertyAssignmentSymbol = getSpecialPropertyAssignmentSymbolFromEntityName(entityName);
                 if (specialPropertyAssignmentSymbol) {
@@ -23035,7 +23040,7 @@ namespace ts {
         function checkGrammarMetaProperty(node: MetaProperty) {
             if (node.keywordToken === SyntaxKind.NewKeyword) {
                 if (node.name.text !== "target") {
-                    return grammarErrorOnNode(node.name, Diagnostics._0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_0, node.name.text, tokenToString(node.keywordToken), "target");
+                    return grammarErrorOnNode(node.name, Diagnostics._0_is_not_a_valid_meta_property_for_keyword_1_Did_you_mean_2, node.name.text, tokenToString(node.keywordToken), "target");
                 }
             }
         }
